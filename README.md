@@ -1,33 +1,27 @@
-### Tutorial: Control de Ventilador con ESP32, DHT22, Node-RED y PostgreSQL
+Claro, aquí está el tutorial completo con los cambios realizados.
 
-Este tutorial te guiará en la creación de un sistema de control de ventilador usando un ESP32, un sensor DHT22, Node-RED para el procesamiento de datos y PostgreSQL para almacenar las lecturas de temperatura. Además, se simulará un ventilador mediante un LED conectado al ESP32 en Wokwi.
+---
 
-#### **1. Simulación en Wokwi**
-Comenzaremos configurando el circuito en Wokwi. Asegúrate de tener los siguientes componentes:
+### Tutorial Completo: Control de Ventilador con ESP32, DHT22, Node-RED y PostgreSQL
 
-- **ESP32**
-- **DHT22 Sensor**
-- **LED (para simular el ventilador)**
-- **Relay (para controlar el LED)**
+Este tutorial te guiará a través de la creación de un sistema para controlar un ventilador usando un ESP32 con un sensor DHT22, procesando los datos en Node-RED, y almacenando las lecturas de temperatura en una base de datos PostgreSQL. El sistema también simulará el ventilador con un LED y un relé.
 
-#### **Paso 1: Configuración del Circuito**
+#### **1. Configuración en Wokwi**
 
-1. **Conecta el DHT22 al ESP32:**
-   - **VCC** a **3.3V** en el ESP32.
-   - **GND** a **GND** en el ESP32.
+**1.1. Configuración del Circuito:**
+
+1. **DHT22 Sensor:**
+   - **VCC** a **3.3V** del ESP32.
+   - **GND** a **GND** del ESP32.
    - **DATA** a **GPIO15** en el ESP32 (puedes usar cualquier pin GPIO disponible).
 
-2. **Conecta el Relay al LED y al ESP32:**
-   - Conecta el **VCC** del relay a **3.3V** del ESP32.
-   - Conecta **GND** del relay a **GND** del ESP32.
-   - Conecta el pin de **señal** del relay al pin **GPIO2** del ESP32.
-   - Conecta el LED en serie con el relay. Una pierna del LED al pin NO (Normally Open) del relay y la otra al GND del ESP32, asegurándote de usar una resistencia adecuada.
+2. **Relay y LED:**
+   - **VCC** del relay a **3.3V** del ESP32.
+   - **GND** del relay a **GND** del ESP32.
+   - **Pin de señal** del relay a **GPIO2** del ESP32.
+   - Conecta el LED en serie con el relay. Una pierna del LED al pin **NO (Normally Open)** del relay y la otra al **GND** del ESP32, usando una resistencia adecuada.
 
-Aquí está el enlace al proyecto Wokwi: [Wokwi Simulation](https://wokwi.com/projects/406233213917645825).
-
-#### **Paso 2: Código MicroPython en ESP32**
-
-Copia y pega el siguiente código en el editor de MicroPython de Wokwi:
+**1.2. Código MicroPython para el ESP32:**
 
 ```python
 import machine
@@ -71,15 +65,11 @@ while True:
     time.sleep(10)  # Publica cada 10 segundos
 ```
 
-Este script lee la temperatura del DHT22 y publica los datos en el tópico MQTT. Además, se suscribe a un tópico para encender/apagar el ventilador.
-
 #### **2. Configuración de Node-RED**
 
-Vamos a configurar Node-RED para recibir la temperatura, calcular el promedio cada minuto, y controlar el ventilador. También guardaremos los datos en una base de datos PostgreSQL.
+**2.1. Flujo de Node-RED:**
 
-#### **Paso 1: Flujo de Node-RED**
-
-Copia y pega el siguiente flujo en tu Node-RED:
+Aquí tienes el flujo de Node-RED actualizado para manejar la temperatura, calcular el promedio cada minuto, y controlar el ventilador.
 
 ```json
 [
@@ -207,4 +197,107 @@ Copia y pega el siguiente flujo en tu Node-RED:
         "type": "function",
         "z": "ec5f2bdb46e6a6b7",
         "name": "Controlar Ventilador",
-        "func": "var avgTemperature = global.get('avgTemperature') || 0;\n\nif (avgTemperature > 25) {\n    return {
+        "func": "var avgTemperature = global.get('avgTemperature') || 0;\n\nif (avgTemperature > 25) {\n    return { payload: \"on\" };\n} else {\n    return { payload: \"off\" };\n}",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 140,
+        "wires": [
+            [
+                "934c29e813a8e65e",
+                "ddce8a0d06d0213b"
+            ]
+        ]
+    },
+    {
+        "id": "f5d5f0c5e43189f1",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Broker",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+
+
+        "tls": "",
+        "clientid": "",
+        "usetls": false,
+        "verifyservercert": true,
+        "maxqueue": "1000",
+        "retain": false,
+        "clean": true,
+        "username": "",
+        "password": "",
+        "protocol": "mqtt",
+        "keepalive": "60",
+        "sessionExpiryInterval": "",
+        "willTopic": "",
+        "willQos": "",
+        "willPayload": "",
+        "willRetain": ""
+    },
+    {
+        "id": "68157ea52b791d6b",
+        "type": "postgresql",
+        "name": "PostgreSQL Database",
+        "host": "localhost",
+        "port": "5432",
+        "database": "your_database",
+        "user": "your_user",
+        "password": "your_password"
+    }
+]
+```
+
+**2.2. Descripción del Flujo:**
+
+1. **MQTT In Node:**
+   - **Topic:** `home/livingroom/temperature`
+   - Lee los datos de temperatura del tópico MQTT.
+
+2. **Function Node - Promedio 1 Minuto:**
+   - Calcula el promedio de temperatura en los últimos 60 segundos.
+
+3. **Function Node - Guardar en PostgreSQL:**
+   - Prepara los datos para ser insertados en la base de datos PostgreSQL.
+
+4. **PostgreSQL Node:**
+   - Inserta los datos de temperatura en la base de datos.
+
+5. **Function Node - Controlar Ventilador:**
+   - Decide si el ventilador debe estar encendido o apagado basado en el promedio de temperatura.
+
+6. **MQTT Out Node:**
+   - Publica el estado del ventilador en el tópico MQTT para que el ESP32 pueda actuar en consecuencia.
+
+7. **Debug Node:**
+   - Muestra los datos de salida en la consola de depuración de Node-RED.
+
+#### **3. Configuración de la Base de Datos PostgreSQL**
+
+**3.1. Creación de la Tabla:**
+
+Ejecuta el siguiente comando SQL para crear la tabla en tu base de datos PostgreSQL:
+
+```sql
+CREATE TABLE sensor_details (
+    id SERIAL PRIMARY KEY,
+    sensor_id INTEGER,
+    reading FLOAT,
+    user_id INTEGER,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+Asegúrate de reemplazar `your_database`, `your_user`, y `your_password` en la configuración del nodo PostgreSQL con tus credenciales reales.
+
+#### **4. Integración y Prueba**
+
+1. **Configura el broker MQTT** en Node-RED con la misma configuración que usas en el código MicroPython.
+2. **Ejecuta el código MicroPython** en tu ESP32.
+3. **Importa el flujo de Node-RED** y asegúrate de que todo esté correctamente conectado.
+4. **Verifica la base de datos PostgreSQL** para asegurarte de que los datos se estén almacenando correctamente.
+5. **Prueba el control del ventilador** encendiendo y apagando el LED desde Node-RED y observando los resultados en la simulación de Wokwi.
+
+¡Y eso es todo! Ahora tienes un sistema completo para monitorear y controlar un ventilador basado en la temperatura utilizando un ESP32, un DHT22, Node-RED y PostgreSQL.
